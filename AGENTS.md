@@ -45,6 +45,19 @@ Si el choque no se resuelve con este orden, elige la opción más conservadora y
 - Al mover, extraer o unificar código, nunca pierdas validaciones ni chequeos de permisos. No unifiques funciones parecidas si una de ellas tiene chequeos de seguridad que la otra no.
 - Si la tarea toca auth, criptografía, sesiones o datos sensibles, sé explícito sobre qué supuestos de seguridad estás haciendo.
 
+## Concurrencia y race conditions
+
+- Al escribir o tocar código asíncrono (efectos, fetch, mutaciones, handlers, navegación), revisa si hay race conditions: respuestas que llegan fuera de orden, estado actualizado tras desmontar, doble envío (doble tap), refresh de token concurrente, lectura-modificación-escritura no atómica.
+- Corrige la causa, nunca el síntoma: no uses `setTimeout`, delays ni flags globales para "arreglar" el orden.
+- Usa la solución adecuada al caso:
+  - Fetch dentro de un efecto: cancela con `AbortController` en el cleanup (o un flag `ignore` si la API no permite abortar).
+  - Acciones que mutan datos o dinero (pagar, liberar fondos, aceptar, cancelar): bloquea mientras la acción está en curso y exige idempotencia en el backend (idempotency key). La protección del cliente nunca reemplaza la del servidor.
+  - Estado derivado del anterior: usa la forma funcional `setState(prev => ...)`.
+  - Refresh de token: una sola promesa compartida en vuelo, no varios refresh paralelos.
+  - Si el proyecto ya usa una librería de data fetching, usa sus mecanismos de cancelación e invalidación antes de escribir lógica propia.
+- Las transiciones de estado del escrow deben validarse y ejecutarse de forma atómica en el servidor. Si el cambio necesario está fuera de tu alcance (backend), repórtalo explícitamente como riesgo de seguridad.
+- Alcance: si la race condition está en el código que ya modificas y el arreglo es pequeño, corrígela e infórmalo aparte. Si está fuera de la tarea, repórtala sin tocarla.
+
 ## Antes de escribir código
 
 Sigue esta escalera y detente en el primer peldaño que resuelva el problema.
